@@ -5,12 +5,18 @@ import json
 from dotenv import load_dotenv
 import os
 from openai import OpenAI
-import joblib  # zamiast pycaret
 from langfuse import Langfuse
 import traceback
+import os
+os.system("pip install pycaret==3.3.2")
+
+
+
+# Import pycaret funkcji ładowania
+from pycaret.regression import load_model
 
 # === Wczytanie modelu ===
-model = joblib.load("model_lasso_v1_2023.pkl")  # zmiana tutaj
+model = load_model("model_lasso_v1_2023")  
 
 # === Wczytanie zmiennych środowiskowych z .env ===
 load_dotenv()
@@ -19,6 +25,7 @@ client = OpenAI(api_key=openai.api_key)
 
 # === Inicjalizacja Langfuse ===
 langfuse = Langfuse()
+
 
 # === Funkcja do zamiany sekund na HH:MM:SS ===
 def format_seconds(seconds):
