@@ -4,28 +4,21 @@ import pandas as pd
 import json
 from dotenv import load_dotenv
 import os
-from openai import OpenAI
 from langfuse import Langfuse
 import traceback
-import os
-os.system("pip install pycaret==3.3.2")
 
+# === Wczytanie zmiennych środowiskowych z .env ===
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# === Inicjalizacja Langfuse ===
+langfuse = Langfuse()
 
 # Import pycaret funkcji ładowania
 from pycaret.regression import load_model
 
 # === Wczytanie modelu ===
 model = load_model("model_lasso_v1_2023")  
-
-# === Wczytanie zmiennych środowiskowych z .env ===
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=openai.api_key)
-
-# === Inicjalizacja Langfuse ===
-langfuse = Langfuse()
-
 
 # === Funkcja do zamiany sekund na HH:MM:SS ===
 def format_seconds(seconds):
@@ -71,24 +64,24 @@ Wiadomość: {user_input}"""
             trace = langfuse.trace(name="polmaraton_prediction", user_id="anon")
             span = trace.span(name="extract_user_data", input=prompt)
 
-            response = client.chat.completions.create(
+            response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
 
-            content = response.choices[0].message.content.strip()
+            content = response["choices"][0]["message"]["content"].strip()
             span.output = content
             span.end()
 
             if not content:
-                st.error("❌ Nie udało się uzyskać odpowiedzi od modelu. Spróbuj ponownie później.")
+                st.error("Nie udało się uzyskać odpowiedzi od modelu. Spróbuj ponownie później.")
                 st.stop()
 
             try:
                 extracted = json.loads(content)
             except json.JSONDecodeError:
-                st.error("❌ Nie udało się odczytać danych. Upewnij się, że podałeś wiek, płeć i czas na 5 km.")
+                st.error("Nie udało się odczytać danych. Upewnij się, że podałeś wiek, płeć i czas na 5 km.")
                 st.stop()
 
             # Sprawdzenie wymaganych danych
@@ -100,7 +93,7 @@ Wiadomość: {user_input}"""
 
             czas_5km = extracted.get("5 km Czas")
             if not isinstance(czas_5km, int) or czas_5km < 800 or czas_5km > 2400:
-                st.error("⛔️ Czas na 5 km wydaje się nielogiczny. Użyj formatu mm:ss lub sprawdź poprawność.")
+                st.error("Czas na 5 km wydaje się nielogiczny. Użyj formatu mm:ss lub sprawdź poprawność.")
                 st.stop()
 
             # DataFrame
@@ -113,11 +106,11 @@ Wiadomość: {user_input}"""
             prediction = model.predict(X)[0]
 
             if prediction < czas_5km * 3.5:
-                st.error("⛔️ Model przewidział nielogicznie szybki półmaraton. Sprawdź dane wejściowe.")
+                st.error(" Model przewidział nielogicznie szybki półmaraton. Sprawdź dane wejściowe.")
             else:
                 formatted = format_seconds(prediction)
                 st.success(f"⏱️ Szacowany czas półmaratonu: {formatted}")
 
         except Exception as e:
-            st.error(f"❌ Błąd podczas analizy lub predykcji: {e}")
+            st.error(f"Błąd podczas analizy lub predykcji: {e}")
             st.text(traceback.format_exc())
